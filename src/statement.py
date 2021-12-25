@@ -5,14 +5,18 @@ class Statement(abc.ABC):
     def __init__(self):
         self.parent = None
     @abc.abstractmethod
-    def __str__(self):
+    def _toString(self, indent):
         pass
+    def __str__(self):
+        return self._toString(0)
     
     @abc.abstractmethod
     def evaluate(self, arguments):
         pass
     def add(self, statement):
         statement.parent = self
+    def encode(self):
+        return ''
 
 class FunctionStatement(Statement):
     def __init__(self, name, eval_func = None):
@@ -20,8 +24,8 @@ class FunctionStatement(Statement):
         self.name = name
         self.eval_func = eval_func
 
-    def __str__(self):
-        return self.name
+    def _toString(self, indent):
+        return ('\t' * indent) + self.name
     
     def evaluate(self, arguments):
         if self.eval_func is None:
@@ -33,22 +37,23 @@ class FunctionStatement(Statement):
         return retVal
 
 class ConditionStatement(FunctionStatement):
-    def __init__(self, name, eval_func=None, isNeg = False):
+    def __init__(self, name, eval_func=None):
         super().__init__(name, eval_func)
         self.ifBlock = None
         self.elseBlock = None
-        if isNeg:
-            self.name = 'not ' + self.name
 
-    def __str__(self):
-        res = ""
+    def _toString(self, indent):
+        if self.ifBlock is None:
+            return ''
+        res = ''
+        indentation = '\t' * indent
         if self.ifBlock is not None:
-            res += "Si " + self.name + ' alors\n'
-            res += '\t' + str(self.ifBlock) + '\n'
+            res += indentation + "Si " + self.name + ' alors\n'
+            res += self.ifBlock._toString(indent + 1) + '\n'
         if self.elseBlock is not None:
-            res += 'else\n\t'
-            res += str(self.elseBlock) + '\n'
-        return res + 'FinSi'
+            res += indentation  + 'Sinon\n'
+            res += self.elseBlock._toString(indent + 1) + '\n'
+        return res + indentation + 'FinSi'
 
     def evaluate(self, arguments):
         if self.ifBlock is None:
@@ -62,14 +67,22 @@ class ConditionStatement(FunctionStatement):
             return self.ifBlock.evaluate(arguments)
         elif self.elseBlock is not None:
             return self.elseBlock.evaluate(arguments)
+
         return arguments
     
-    def add(self, conditionBlock, isIf = True):
-        super().add(conditionBlock)
+    def add(self, isIf):
+        block = StatementsBlock()
+        super().add(block)
         if isIf:
-            self.ifBlock = conditionBlock
+            self.ifBlock = block
         else:
-            self.elseBlock = conditionBlock
+            self.elseBlock = block
+
+    def encode(self):
+        codage = ('1' + self.ifBlock.encode()) if self.ifBlock is not None else ''
+        codage += ('0' + self.elseBlock.encode()) if self.elseBlock is not None else ''
+
+        return codage
 
 class StatementsBlock(Statement):
     def __init__(self):
@@ -77,18 +90,20 @@ class StatementsBlock(Statement):
         self.statement = None
         self.statementsBlock = None
     
-    def __str__(self):
+    def _toString(self, indent):
         res = ""
-        res += str(self.statement) if self.statement is not None else ""
-        res += '\n'  + (self.statementsBlock if self.statementsBlock is not None else "")
+        res += self.statement._toString(indent) if self.statement is not None else ""
+        res += ('\n'  + self.statementsBlock._toString(indent)) if self.statementsBlock is not None else ""
         return res
 
     def evaluate(self, arguments):
-        if self.statement is not None:
-            args = self.statement.evaluate(arguments)
+        if self.statement is None:
+            raise AgentError("block is missing statement")
+
+        args = self.statement.evaluate(arguments)
+
         if self.statementsBlock is not None:
             args = self.statementsBlock.evaluate(args)
-
         return args
 
     def add(self, statement_s):
@@ -97,6 +112,12 @@ class StatementsBlock(Statement):
             self.statement = statement_s
         elif isinstance(statement_s, StatementsBlock):
             self.statementsBlock = statement_s
+
+    def encode(self):
+        codage = ('1' + self.statement.encode()) if self.statement is not None else ''
+        codage += ('0' + self.statementsBlock.encode()) if self.statementsBlock is not None else ''
+
+        return codage
 
 
 
