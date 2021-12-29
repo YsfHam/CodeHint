@@ -31,8 +31,16 @@ class BasicEnv:
         (1, 0) aller en haut
         (1, 1) aller à gauche
         (1, 2) aller à droite
+
+        (2, 0) enlever poser
+        (2, 1) enlever retirer
+        (2, 2) enlever un block
+        (2, 3) enlever une condition pos
+        (2, 4) enlever une condition neg
+        (2, 5) enlever un block Si
+        (2, 6) enlever un block Sinon
         '''
-        self.actions = [(0, n) for n in range(7)] + [(1, n) for n in range(3)]
+        self.actions = [(0, n) for n in range(7)] + [(1, n) for n in range(3)] + [(2, n) for n in range(7)] 
         self.actions_space = Discrete(len(self.actions))
 
     def reset(self):
@@ -48,9 +56,9 @@ class BasicEnv:
         if not self.actions_space.contains(action):
             raise Exception("action not found", action, "but ", self.actions_space.n)
         self.nb_steps += 1
-        action_detail = self.actions[action]
         reward = -1
         done = False
+        action_detail = self.actions[action]
         if action_detail in self.possible_actions():
             self.perform_action(action_detail)
             self.state['codage'] = self.algorithm.encode()
@@ -68,7 +76,7 @@ class BasicEnv:
             self.init_tests()
             t1 = torch.tensor(state_num_val)
             t2 = torch.tensor(self.desired_state)
-            diff = (t1 - t2).sum().item()
+            diff = torch.abs(t1 - t2).sum().item()
             if diff == 0:
                 reward = 100
 
@@ -90,6 +98,7 @@ class BasicEnv:
                     int_reward -= diff / len(self.tests_io)
             except myExceptions.AgentError as e:
                 self.infos['Errors'].append(e)
+                int_reward -= 1 / len(self.tests_io)
 
         return success, int_reward
 
@@ -100,24 +109,34 @@ class BasicEnv:
             return [(1, 0)]
         if current_node_type == statement.ConditionStatement:
             if self.current_statement.ifBlock is None:
-                return [(0, 5)]
-            pa = [(1, 1), (1, 0)]
-            pa += [(0, 6)] if self.current_statement.elseBlock is None else [(1, 2)]
+                return [(0, 5), (1, 0)]
+            pa = [(1, 1), (1, 0), (2, 5)]
+            pa += [(0, 6)] if self.current_statement.elseBlock is None else [(1, 2), (2, 6)]
             return pa
         if current_node_type == statement.StatementsBlock:
             if self.current_statement.statement is None:
                 return [(0, 0), (0, 1), (0, 3), (0, 4)]
             
             if type(self.current_statement.statement) == statement.ConditionStatement:
-                return [(1, 1)]
+                cndS = self.current_statement.statement
+                pa = [(1, 1)]
+                pa += [(2, 3), (2, 4)] if cndS.ifBlock is None and cndS.elseBlock is None else []
+                return pa
             pa = [] if self.current_statement == self.algorithm else [(1, 0)]
-            pa += [(0, 2)] if self.current_statement.statementsBlock is None else [(1, 2)]
+            pa += [(2, 0), (2, 1)]
+            if self.current_statement.statementsBlock is None:
+                pa += [(0, 2)]
+            else:
+                block = self.current_statement.statementsBlock
+                pa += [(1, 2)]
+                pa += [] if block.statement is not None else [(2, 2)]
             return pa
 
         raise myExceptions.EnvironmentError("Error while computing possible actions")
 
     def perform_action(self, action_detail):
         action_class, action_code = action_detail
+        # action d'ajout
         if action_class == 0 and action_code == 0: 
             self.current_statement.add(self.instructions['poser'])
             self.state['poser'] += 1
@@ -139,6 +158,29 @@ class BasicEnv:
             self.current_statement.add(False)
             self.state['Sinon'] += 1
 
+        #actions d'enlèvement
+        elif action_class == 2 and action_code == 0: 
+            if self.current_statement.statement.name == "poser":
+                self.state['poser'] -= 1
+                self.current_statement.statement = None
+        elif action_class == 2 and action_code == 1: 
+            if self.current_statement.statement.name == "retirer":
+                self.state['retirer'] -= 1
+                self.current_statement.statement = None
+        elif action_class == 2 and action_code == 2: 
+            self.current_statement.statementsBlock = None
+        elif action_class == 2 and action_code in [3, 4]: 
+            cndStatus = 'CndPos' if self.current_statement.statement.name == 'est_vide' else 'CndNeg'
+            self.current_statement.statement = None
+            self.state[cndStatus] -= 1
+        elif action_class == 2 and action_code == 5: 
+            self.current_statement.ifBlock = None
+            self.state['Si'] -= 1
+        elif action_class == 2 and action_code == 6: 
+            self.current_statement.elseBlock = None
+            self.state['Sinon'] -= 1
+
+        #actions de déplacement
         elif action_class == 1 and action_code == 0: self.current_statement = self.current_statement.parent
         elif action_class == 1 and action_code == 1:
             if type(self.current_statement) == statement.StatementsBlock:

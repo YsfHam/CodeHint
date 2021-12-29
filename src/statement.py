@@ -118,8 +118,3 @@ class StatementsBlock(Statement):
         codage += ('0' + self.statementsBlock.encode()) if self.statementsBlock is not None else ''
 
         return codage
-
-
-
-
-
