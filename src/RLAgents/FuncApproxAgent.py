@@ -79,7 +79,7 @@ def tileswrap (ihtORsize, numtilings, floats, wrapwidths, ints=[], readonly=Fals
 
 class FuncApproxAgent(LearningAgent):
     def __init__(self):
-        self.max_size =  4096
+        self.max_size =  4096 * 30
         self.num_tilings = 8
         self.tiling_dim = 8
 

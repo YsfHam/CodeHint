@@ -3,7 +3,7 @@ from BasicEnv import BasicEnv
 from RLAgents.QLearningAgent import QLearningAgent
 from RLAgents.MonteCarloAgent import MonteCarloAgent
 import torch
-
+import sys
 def evaluate(env, policy, file_name):
 
     env.init_tests()
@@ -28,9 +28,17 @@ def test(env, agent= None,maxit=1000):
   if agent is not None:
     agent.reset()
     with torch.no_grad():
-      agent.compute_policy(env, max_iterations=maxit, debug=True, alpha=0.001)
+      agent.compute_policy(env, max_iterations=maxit, debug=True, alpha=0.0001)
   evaluate(env,agent, 'algorithm.alg')
-agent = QLearningAgent()
-#agent = MonteCarloAgent()
+agents = {
+  'QLearningAgent':lambda: QLearningAgent(),
+  'MonteCarloAgent':lambda: MonteCarloAgent()
+  }
+if len(sys.argv) < 2 or sys.argv[1] not in agents:
+  print("Please specify one of the following arguments : ")
+  for agentName in agents:
+    print(agentName)
+  sys.exit(1)
+agent = agents[sys.argv[1]]()
 env = BasicEnv(horizon=30)
 test(env, agent, 1000)

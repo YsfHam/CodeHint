@@ -18,6 +18,7 @@ class QLearningAgent(FuncApproxAgent):
             state = env.reset()
             action = self.epsilon_greedy_action(env, state, epsilon)
             infos = None
+            reward = 0
             while not done:
                 newstate, reward, done, infos = env.step(action)                
                 #parameter update
@@ -40,7 +41,7 @@ class QLearningAgent(FuncApproxAgent):
                 
             tot_rewards += tot_reward
 
-            if debug and ((m+1)%100 == 0):
+            if debug and (((m+1)%100 == 0) or reward == 100):
                 avg = tot_rewards / (m+1)
                 print("****************************")
                 print("success_rate : ", infos['success_rate'])
@@ -50,6 +51,8 @@ class QLearningAgent(FuncApproxAgent):
                 print("------------------------")
                 print("codage : ", infos['state'])
                 print(infos['Errors'])
+                print('tests : ', infos['tests'])
+                print(infos['actions'])
                 print("****************************")
             
             if epsilon > 0:

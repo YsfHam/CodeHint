@@ -17,6 +17,7 @@ class MonteCarloAgent(FuncApproxAgent):
             action = self.epsilon_greedy_action(env, state, epsilon)
             infos = None
             states_actions = [(state, action)]
+            reward = 0
             while not done:
                 state, reward, done, infos = env.step(action)                
                 action = self.epsilon_greedy_action(env, state, epsilon)
@@ -28,17 +29,18 @@ class MonteCarloAgent(FuncApproxAgent):
                 
             tot_rewards += tot_reward
 
-            if debug and ((m+1)%100 == 0):
+            if debug and (((m+1)%100 == 0) or reward == 100):
                 avg = tot_rewards / (m+1)
                 print("****************************")
                 print("success_rate : ", infos['success_rate'])
                 print(m+1, avg, epsilon)
                 print("------------------------")
                 print(env.algorithm)
-                print(infos['Algo'])
                 print("------------------------")
                 print("state infos : ", infos['state'])
                 print(infos['Errors'])
+                print('tests : ', infos['tests'])
+                print(infos['actions'])
                 print("****************************")
             
             if epsilon > 0:
