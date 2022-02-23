@@ -17,7 +17,7 @@ class BasicEnv:
         self.rand = random.Random()
         self.init_tests()
         #(codage, nbposer, nbretirer, nbSi, nbcndPos, nbcndNeg, nbSinon)
-        self.desired_state = [7, 0, 1, 1, 0, 1, 0]
+        #self.desired_state = [7, 0, 1, 1, 0, 1, 0]
         self.actions_string = {}
 
         # dictionnaire d'actions
@@ -45,11 +45,14 @@ class BasicEnv:
     def reset(self):
         self.algorithm = statement.StatementsBlock()
         self.current_statement = self.algorithm
-        #(codage, nbposer, nbretirer, nbSi, nbcndPos, nbcndNeg, nbSinon)
-        self.state = {'codage':'', 'poser':0, 'retirer':0, 'Si':0, 'CndPos':0, 'CndNeg':0, 'Sinon':0}     
+
+        #Si [2], retirer:[3, 4]
+        self.state = {'codage':'', 'poser':0, 'retirer':0, 'Si':0, 'CndPos':0, 'CndNeg':0, 'Sinon':0, 
+        'Tests_status':0
+        }     
         self.nb_steps = 0
         self.infos['actions'] = []
-        return (-1, 0, 0, 0, 0, 0, 0)
+        return (0, 0, 0, 0, 0, 0, 0)
         
     '''step return new state, reward, done'''
     def step(self, action):
@@ -63,8 +66,7 @@ class BasicEnv:
             self.perform_action(action_detail)
             self.infos['actions'].append(self.actions_string[action_detail])
             self.state['codage'] = self.algorithm.encode()
-            success = self.test_algorithm()
-            if success > 0: reward = 0
+            success, reward = self.test_algorithm()
             success_rate = success / len(self.tests_io) * 100
             self.infos['success_rate'] = success_rate
             done = success_rate == 100
@@ -73,31 +75,35 @@ class BasicEnv:
         self.infos['Algo'] = str(self.algorithm)
 
         state_num_val = [self.state[k] for k in self.state]
-        state_num_val[0] = int(state_num_val[0], base=2) if state_num_val[0] != '' else -1
+        state_num_val[0] = int(state_num_val[0], base=2) if state_num_val[0] != '' else 0
         if done:
             self.init_tests()
             reward = 100
-        t1 = torch.tensor(state_num_val)
-        t2 = torch.tensor(self.desired_state)
-        diff = torch.abs(t1 - t2).sum().item()
-        reward -= diff
-        done = done or self.nb_steps == self.horizon
+        else: 
+            done = self.nb_steps == self.horizon
         return state_num_val, reward, done, self.infos
 
     def test_algorithm(self):
         success = 0
+        reward = 0
+        puissanceDe2 = 1 # pour garder la position du bit qu'on pourrait mettre à 1 si le test est résussi
         self.infos['Errors'] = None
         try:
             for input, output in self.tests_io:
                 res = self.algorithm.evaluate(input)
                 if res == output:
                     success += 1
+                    self.state['Tests_status'] = self.state['Tests_status'] | puissanceDe2
+                elif res < 0:
+                    reward = -100
+                puissanceDe2 = puissanceDe2 << 1
 
         except myExceptions.AgentError as e:
             self.infos['Errors'] = e
             success = 0
+            reward = -100
 
-        return success
+        return success, reward
 
     def possible_actions(self):
         current_node_type = type(self.current_statement)
