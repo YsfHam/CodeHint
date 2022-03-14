@@ -1,8 +1,7 @@
 from .FuncApproxAgent import FuncApproxAgent
-
+import torch
 class MonteCarloAgent(FuncApproxAgent):
      def compute_policy(self, env, gamma=0.9, max_iterations=1000000, base_epsilon=0.8, alpha=0.2, debug=False):
-        alpha = alpha * self.num_tilings
 
         tot_rewards = 0
         epsilon = base_epsilon
@@ -13,35 +12,29 @@ class MonteCarloAgent(FuncApproxAgent):
             done = False
             tot_reward = 0.0
 
-            state = env.reset()
-            action = self.epsilon_greedy_action(env, state, epsilon)
+            action_state = env.reset()
+            t_action_state = torch.tensor(action_state, dtype=torch.float)
+            action, option = self.epsilon_greedy_action(env, t_action_state, epsilon)
             infos = None
-            states_actions = [(state, action)]
+            states_actions = [(action_state, action, option)]
             reward = 0
             while not done:
-                state, reward, done, infos = env.step(action)                
-                action = self.epsilon_greedy_action(env, state, epsilon)
-                states_actions.append((state, action))
+                action_state, reward, done, infos = env.step(action, option)                
+                action, option = self.epsilon_greedy_action(env, t_action_state, epsilon)
+                states_actions.append((action_state, action, option))
                 tot_reward += reward
 
-            for state, action in states_actions:
-                self.parameters += alpha * (tot_reward - self.get_q(state, env)[action]) * self.featurize(state, env)[action]
+            for action_state, action, option in states_actions:
+                t_action_state = torch.tensor(action_state, dtype=torch.float)
+                t_action = torch.tensor([action], dtype=torch.float)
+                self.actions_parameters += alpha * (tot_reward - self.get_actions_q(t_action_state, env)[action]) * t_action_state
+                self.options_parameters += alpha * (tot_reward - self.get_options_q(t_action_state, t_action, env)[option]) * torch.cat((t_action_state, t_action))
                 
             tot_rewards += tot_reward
 
             if debug and (((m+1)%100 == 0) or reward == 100):
                 avg = tot_rewards / (m+1)
-                print("****************************")
-                print("success_rate : ", infos['success_rate'])
                 print(m+1, avg, epsilon)
-                print("------------------------")
-                print(env.algorithm)
-                print("------------------------")
-                print("state infos : ", infos['state'])
-                print(infos['Errors'])
-                print('tests : ', infos['tests'])
-                print(infos['actions'])
-                print("****************************")
             
             if epsilon > 0:
                 epsilon -= base_epsilon/max_iterations
@@ -52,6 +45,12 @@ class MonteCarloAgent(FuncApproxAgent):
             print("------------------------")
             print(env.algorithm)
             print("------------------------")
-            print("codage : ", infos['state'])
-            print(infos['Errors'])
+            print(env.infos)
+            print("------------------------")
+            print(env.state_infos)
+            print("------------------------")
+            print(self.actions_parameters)
+            print("------------------------")
+            print(self.options_parameters)
             print("****************************")
+        self.save_to_file(["actionsMC.pol", "optionsMC.pol"])
