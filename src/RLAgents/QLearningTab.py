@@ -6,6 +6,7 @@ class QLearningAgentTab(LearningAgent):
     def __init__(self, env):
         self.reset(env)
     
+    
     def reset(self, env):
         self.actionsQ = {}
         self.optionsQ = {}
