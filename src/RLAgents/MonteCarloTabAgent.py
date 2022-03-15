@@ -41,8 +41,8 @@ class MonteCarloTabAgent(LearningAgent):
                 t_action = torch.tensor([action], dtype=torch.float)
                 gain = gamma * gain + rewards[(action_state, action, option)]
 
-                self.get_actions_q(t_action_state, env)
-                self.get_options_q(t_action_state, t_action, env)
+                print(self.get_actions_q(t_action_state, env))
+                print(self.get_options_q(t_action_state, t_action, env))
 
                 self.actionQ[t_action_state][action] += alpha * (gain - self.get_actions_q(t_action_state, env)[action])
                 self.optionQ[(t_action_state, t_action)][option] += alpha * (gain - self.get_options_q(t_action_state, t_action, env)[option])
@@ -67,9 +67,9 @@ class MonteCarloTabAgent(LearningAgent):
             print("------------------------")
             print(env.state_infos)
             print("------------------------")
-            print(self.actions_parameters)
+            print(self.actionQ)
             print("------------------------")
-            print(self.options_parameters)
+            print(self.optionQ)
             print("****************************")
 
 

@@ -3,6 +3,7 @@ import myExceptions
 
 from gym.spaces import Discrete
 import random
+import torch
 
 NoneType = type(None)
 
@@ -13,6 +14,8 @@ class Env2:
         self.horizon = horizon
 
         self.reset()
+        self.best_state = (0) * self.state_len
+        self.max_reward = 100
 
         self.actions_str = {}
         self.actions_str[(0, 0)] =  'ajouter poser'
@@ -22,6 +25,7 @@ class Env2:
         self.actions_str[(1, 0)] =  'appliquer négation'
         self.actions_str[(2, 0)] =  'enlever arbre gauche'
         self.actions_str[(2, 1)] =  'enlever arbre droit'
+        self.actions_str[(3, 0)] =  'Blank'
 
         self.actions = [x for x in self.actions_str]
         self.action_space = Discrete(len(self.actions))
@@ -29,6 +33,7 @@ class Env2:
         self.possible_actions = {}
         self.possible_actions[statement.StatementsBlock] = [(0, 0), (0, 1), (0, 2), (2, 0), (2, 1)]
         self.possible_actions[statement.ConditionStatement] = [(0, 3), (1, 0), (2, 1)]
+        self.possible_actions[statement.FunctionStatement] = [(3, 0)]
 
 
         self.prepared_add_statements = [0] * len([x for x, _ in self.actions_str if x == 0])
@@ -51,13 +56,14 @@ class Env2:
         self.options_space = Discrete(options_number)
 
         self.action_possible_options = {}
-        self.action_possible_options[(0, 0)] = [4, 1, 3, 5, 6]
-        self.action_possible_options[(0, 1)] = [4, 1, 3, 5, 6]
+        self.action_possible_options[(0, 0)] = [1, 3, 5, 6]
+        self.action_possible_options[(0, 1)] = [1, 3, 5, 6]
         self.action_possible_options[(0, 2)] = [0, 2, 5, 6]
         self.action_possible_options[(0, 3)] = [1, 3, 5, 6]
-        self.action_possible_options[(1, 0)] = [0, 1, 2, 3, 4, 5, 6]
-        self.action_possible_options[(2, 0)] = [1, 3, 4, 5, 6]
-        self.action_possible_options[(2, 1)] = [0, 2, 4, 5, 6]
+        self.action_possible_options[(1, 0)] = [0, 1, 2, 3, 5, 6]
+        self.action_possible_options[(2, 0)] = [3, 1, 5, 6]
+        self.action_possible_options[(2, 1)] = [2, 0, 5, 6]
+        self.action_possible_options[(3, 0)] = [5, 6]
 
         self.statementsCodes = {
             statement.StatementsBlock:0,
@@ -111,12 +117,15 @@ class Env2:
         action = self.actions[actionIndex]
 
         done = False
-        if action in self.possible_actions[type(self.current_statement)]:
-            self.reward = 0
+        self.reward = -1
+        options_reward = 0
+        if self.is_action_valid(action):
+            options_reward = 1
             self.perform_action(action)
 
             if not self.is_option_valid(action, option):
                 option = 4 # Nop
+                options_reward = -1
 
             self.perform_move_option(option)
 
@@ -134,37 +143,55 @@ class Env2:
         state = [self.state_infos[x] for x in self.state_infos]
         state[0] = self.algorithm.encode()
         state = tuple(state)
-        return state, self.reward, done or self.nb_steps == self.horizon, self.infos
+        if self.reward == self.max_reward:
+            self.best_state = state
+        '''else:
+            self.reward -= torch.abs(torch.tensor(state, dtype=torch.float64) - torch.tensor(self.best_state, dtype=torch.float64)).sum().item()
+        '''
+        return state, self.reward, options_reward, done or self.nb_steps == self.horizon, self.infos
     
     def test_algorithm(self):
         self.infos['algo_results'] = []
         puissance2 = 1
         major_error = False
         success = 0
-        test_io = [(0, 0), (1, 0)]
-        for input, output in test_io:
-            res = self.algorithm.evaluate(input)
-            self.infos['algo_results'].append((input, res))
-            if res == output: 
-                self.reward += 1
-                self.state_infos['tests'] |= puissance2
-                puissance2 <<= 1
-                success += 1
-            else:
-                self.reward -= 1
-            
-            if res < 0:
-                major_error = True
+        test_io = [(0, 0), (1, 0), (2, 1)]
+        try:
+            for input, output in test_io:
+                res = self.algorithm.evaluate(input)
+                self.infos['algo_results'].append((input, res))
+                if res == output: 
+                    self.reward += 1
+                    self.state_infos['tests'] |= puissance2
+                    puissance2 <<= 1
+                    success += 1
+                else:
+                    self.reward -= 1
+                
+                if res < 0:
+                    major_error = True
+        except statement.AgentError as e:
+            major_error = True
         
         self.infos['success_rate'] = success / len(test_io) * 100
-        if major_error or success == 0: 
-            self.reward = -20
+        if major_error: 
+            self.reward = -self.max_reward * 0.5
             return False
         if success == len(test_io):
-            self.reward = 100
+            self.reward = self.max_reward
             return True
         return False
 
+    def is_action_valid(self, action):
+        if action not in self.possible_actions[type(self.current_statement)]:
+            return False
+        action_class, action_code = action
+        if action_class == 2 and action_code == 0:
+            return self.current_statement.getLeft() is not None
+        elif action_class == 2 and action_code == 1:
+            return self.current_statement.getRight() is not None
+        
+        return True
 
     def perform_action(self, action):
         action_class, action_code = action

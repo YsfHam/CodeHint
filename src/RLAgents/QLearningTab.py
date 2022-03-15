@@ -1,16 +1,19 @@
+from .Agent import LearningAgent
+
 import torch
-from .FuncApproxAgent import FuncApproxAgent
-  
 
-class QLearningAgent(FuncApproxAgent):
-
+class QLearningAgentTab(LearningAgent):
     def __init__(self, env):
-        super().__init__(env)
+        self.reset(env)
+    
+    def reset(self, env):
+        self.actionsQ = {}
+        self.optionsQ = {}
 
     def compute_policy(self, env, gamma=0.9, max_iterations=1000000, base_epsilon=0.8, alpha=0.2, debug=False):
-
         tot_rewards = 0
         epsilon = base_epsilon
+        winning = 0
         if debug:
             print("Training policy...")
 
@@ -25,21 +28,17 @@ class QLearningAgent(FuncApproxAgent):
             reward = 0
             while not done:
                 t_action = torch.tensor([action], dtype=torch.float64)
-                t_option_state = torch.cat((t_action_state, t_action))
                 action_newstate, actions_reward, options_reward, done, infos = env.step(action, option)                
                 t_action_newstate = torch.tensor(action_newstate, dtype=torch.float64)
                 newaction, newoption = self.epsilon_greedy_action(env, t_action_newstate, epsilon)
-                stateActionQ = self.get_actions_q(t_action_state, env)
-                stateOptionQ = self.get_options_q(t_action_state,t_action, env)
-                newstateActionQ = self.get_actions_q(t_action_newstate, env)
                 t_newaction = torch.tensor([newaction], dtype=torch.float64)
-                newstateOptionQ = self.get_options_q(t_action_newstate, t_newaction, env)
-                if done:
-                    self.actions_parameters[action] += alpha * (actions_reward - stateActionQ[action]) * t_action_state
-                    self.options_parameters[option] += alpha * (options_reward - stateOptionQ[option]) * t_option_state
-                else:
-                    self.actions_parameters[action] += alpha * (actions_reward + gamma * torch.max(newstateActionQ) - stateActionQ[action]) * t_action_state
-                    self.options_parameters[option] += alpha * (options_reward + gamma * torch.max(newstateOptionQ) - stateOptionQ[option]) * t_option_state
+
+                if actions_reward == env.max_reward: 
+                    print("done ", done)
+                    winning += 1
+
+                self.get_actions_q(t_action_state, env)[action] += alpha * (actions_reward + gamma * torch.max(self.get_actions_q(t_action_newstate, env)) - self.get_actions_q(t_action_state, env)[action])
+                self.get_options_q(t_action_state, t_action, env)[option] += alpha * (options_reward + gamma * torch.max(self.get_options_q(t_action_newstate, t_newaction, env)) - self.get_options_q(t_action_state, t_action, env)[option])
 
                 action_state, action, option = action_newstate, newaction, newoption
                 reward = actions_reward + options_reward
@@ -50,7 +49,6 @@ class QLearningAgent(FuncApproxAgent):
             if debug and ((m+1)%100 == 0):
                 avg = tot_rewards / (m+1)
                 print(m+1, avg, epsilon)
-                print(env.algorithm)
             
             if epsilon > 0:
                 epsilon -= base_epsilon/max_iterations
@@ -64,9 +62,24 @@ class QLearningAgent(FuncApproxAgent):
             print(env.infos)
             print("------------------------")
             print(env.state_infos)
-            print("------------------------")
-            print(self.actions_parameters)
-            print("------------------------")
-            print(self.options_parameters)
+            print("reward ", actions_reward)
             print("****************************")
-        self.save_to_file(["actions.pol", "options.pol"])
+        print("sur {nbtests} test l agent a réussi {n} fois".format(nbtests=max_iterations, n=winning))
+        
+    
+    def get_actions_q(self, state, env):
+        if state in self.actionsQ:
+            return self.actionsQ[state]
+        
+        temp = torch.zeros(env.action_space.n)
+        self.actionsQ[state] = temp
+        return temp
+
+    def get_options_q(self, state, action, env):
+        option_s = torch.cat((state, action))
+        if option_s in self.optionsQ:
+            return self.optionsQ[option_s]
+        
+        temp = torch.zeros(env.options_space.n)
+        self.optionsQ[option_s] = temp
+        return temp

@@ -1,6 +1,8 @@
 import abc
 from myExceptions import AgentError, EnvironmentError
 
+import math
+
 class Statement(abc.ABC):
     def __init__(self):
         self.parent = None
@@ -21,7 +23,7 @@ class Statement(abc.ABC):
         pass
 
     def encode(self):
-        return int(self.encode_str(), 5)
+        return math.log(int(self.encode_str(), 5))
 
     def setLeft(self, statement):
         pass
@@ -84,8 +86,10 @@ class ConditionStatement(FunctionStatement):
     def negation(self):
         if self.isNeg:
             self.eval_func = self.eval_func_copy
+            self.isNeg = False
         else:
             self.eval_func = lambda x: not self.eval_func_copy(x)
+            self.isNeg = True
         self.name = 'non ' + self.name
 
 
@@ -148,6 +152,8 @@ class StatementsBlock(Statement):
         return res
 
     def evaluate(self, arguments):
+        if self.statement is None and self.statementsBlock is not None:
+            raise AgentError()
         args = arguments
         if self.statement is not None:
             args = self.statement.evaluate(args)
