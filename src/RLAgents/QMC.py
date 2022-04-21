@@ -2,7 +2,7 @@ from .Agent import LearningAgent
 
 import torch
 
-class QLearningAgentTab(LearningAgent):
+class QMC(LearningAgent):
     def __init__(self, env):
         self.reset(env)
     
@@ -12,44 +12,49 @@ class QLearningAgentTab(LearningAgent):
         self.optionsQ = {}
 
     def compute_policy(self, env, gamma=0.9, max_iterations=1000000, base_epsilon=0.8, alpha=0.2, debug=False):
-        tot_rewards = 0
+        a_tot_rewards = 0
+        o_tot_rewards = 0
         epsilon = base_epsilon
-        winning = 0
         if debug:
-            print("Training policy...")
+            print("QMC, Training policy...")
 
         for m in range(max_iterations):
             done = False
-            tot_reward = 0.0
+            a_tot_reward = 0.0
+            o_tot_reward = 0.0
 
             action_state = env.reset()
-            t_action_state = torch.tensor(action_state, dtype=torch.float64)
-            action, option = self.epsilon_greedy_action(env, t_action_state, epsilon)
+            action, option = self.epsilon_greedy_action(env, action_state, epsilon)
             infos = None
-            reward = 0
+            trajectory_op = []
             while not done:
-                t_action = torch.tensor([action], dtype=torch.float64)
                 action_newstate, actions_reward, options_reward, done, infos = env.step(action, option)                
-                t_action_newstate = torch.tensor(action_newstate, dtype=torch.float64)
-                newaction, newoption = self.epsilon_greedy_action(env, t_action_newstate, epsilon)
-                t_newaction = torch.tensor([newaction], dtype=torch.float64)
+                trajectory_op.append((action_state, action, option, options_reward))
+                newaction, newoption = self.epsilon_greedy_action(env, action_newstate, epsilon)
 
-                if actions_reward == env.max_reward: 
-                    print("done ", done)
-                    winning += 1
-
-                self.get_actions_q(t_action_state, env)[action] += alpha * (actions_reward + gamma * self.get_actions_q(t_action_newstate, env)[newaction] - self.get_actions_q(t_action_state, env)[action])
-                self.get_options_q(t_action_state, t_action, env)[option] += alpha * (options_reward + gamma * self.get_options_q(t_action_newstate, t_newaction, env)[newoption] - self.get_options_q(t_action_state, t_action, env)[option])
+                # Qlearning to learn actions
+                self.get_actions_q(action_state, env)[action] += alpha * (actions_reward + gamma * torch.max(self.get_actions_q(action_newstate, env)) - self.get_actions_q(action_state, env)[action])
 
                 action_state, action, option = action_newstate, newaction, newoption
-                reward = actions_reward + options_reward
-                tot_reward += reward
+
+                a_tot_reward += actions_reward
+                o_tot_reward += options_reward
+            # Monte carlo for to learn options
+            G = 0
+            for i in range(len(trajectory_op) - 1, -1, -1):
+                action_state, action, option, reward = trajectory_op[i]
+                G = gamma * G + reward
+                self.get_options_q(action_state, action, env)[option] += alpha * (G - self.get_options_q(action_state, action, env)[option])
                 
-            tot_rewards += tot_reward
+            a_tot_rewards += a_tot_reward
+            o_tot_rewards += o_tot_reward
+
+
 
             if debug and ((m+1)%100 == 0):
-                avg = tot_rewards / (m+1)
-                print(m+1, avg, epsilon)
+                a_avg = a_tot_rewards / (m+1)
+                o_avg = o_tot_reward / (m + 1)
+                print(m+1, a_avg, o_avg, epsilon)
                 print(env.algorithm)
                 print("------------------------")
                 print('actions', env.infos['actions'])
@@ -76,24 +81,30 @@ class QLearningAgentTab(LearningAgent):
             print('algo_results', env.infos['algo_results'])
             print("------------------------")
             print(env.state_infos)
-            print("reward ", actions_reward)
             print("****************************")
-        print("sur {nbtests} test l agent a réussi {n} fois".format(nbtests=max_iterations, n=winning))
+            print(len(self.actionsQ))
+            print(len(self.optionsQ))
         
     
     def get_actions_q(self, state, env):
         if state in self.actionsQ:
             return self.actionsQ[state]
         
-        temp = torch.zeros(env.action_space.n)
+        temp = torch.rand(env.action_space.n)
         self.actionsQ[state] = temp
         return temp
 
     def get_options_q(self, state, action, env):
-        option_s = torch.cat((state, action))
+        option_s = (state, action)
         if option_s in self.optionsQ:
             return self.optionsQ[option_s]
         
-        temp = torch.zeros(env.options_space.n)
+        temp = torch.rand(env.options_space.n)
         self.optionsQ[option_s] = temp
         return temp
+
+    def get_policy(self, state, env):
+        action = torch.argmax(self.get_actions_q(state, env)).item()
+        option = torch.argmax(self.get_options_q(state, action, env)).item()
+
+        return action, option

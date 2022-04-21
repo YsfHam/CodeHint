@@ -108,7 +108,20 @@ class NNAgent(LearningAgent):
 
             if debug and ((m+1)%100 == 0):
                 print(m+1, tot_reward, tot_rewards/m, epsilon) #, self.parameters)
+                print("****************************")
+                print("------------------------")
                 print(env.algorithm)
+                print("------------------------")
+                print('actions', env.infos['actions'])
+                print("------------------------")
+                print('success_rate', env.infos['success_rate'])
+                print("------------------------")
+                print('algo_results', env.infos['algo_results'])
+                print("------------------------")
+                print(env.state_infos)
+                print("------------------------")
+                print("****************************")
+
 
             
             if epsilon > 0:
@@ -116,11 +129,14 @@ class NNAgent(LearningAgent):
         if debug:
             print("Training finished")
             print("****************************")
-            print("success_rate : ", infos['success_rate'])
             print("------------------------")
             print(env.algorithm)
             print("------------------------")
-            print(env.infos)
+            print('actions', env.infos['actions'])
+            print("------------------------")
+            print('success_rate', env.infos['success_rate'])
+            print("------------------------")
+            print('algo_results', env.infos['algo_results'])
             print("------------------------")
             print(env.state_infos)
             print("------------------------")

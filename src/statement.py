@@ -21,6 +21,8 @@ class Statement(abc.ABC):
     @abc.abstractmethod
     def encode_str(self):
         pass
+    def instructionsNum(self):
+        return 0
 
     def encode(self):
         return math.log(int(self.encode_str(), 5))
@@ -139,6 +141,15 @@ class ConditionStatement(FunctionStatement):
     def getRight(self):
         return self.elseBlock
 
+    def instructionsNum(self):
+        res = 0
+        if self.ifBlock is not None:
+            res = 1 + self.ifBlock.instructionsNum()
+        if self.elseBlock is not None:
+            res = 1 + self.elseBlock.instructionsNum()
+
+        return res
+
 class StatementsBlock(Statement):
     def __init__(self):
         super().__init__()
@@ -152,7 +163,7 @@ class StatementsBlock(Statement):
         return res
 
     def evaluate(self, arguments):
-        if self.statement is None and self.statementsBlock is not None:
+        if self.statement is None and self.statementsBlock is None:
             raise AgentError()
         args = arguments
         if self.statement is not None:
@@ -191,3 +202,12 @@ class StatementsBlock(Statement):
         return self.statement
     def getRight(self):
         return self.statementsBlock
+
+    def instructionsNum(self):
+        res = 0
+        if self.statement is not None:
+            res = 1
+        if self.statementsBlock is not None:
+            res += self.statementsBlock.instructionsNum()
+
+        return res

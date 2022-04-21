@@ -13,6 +13,8 @@ class Env2:
         self.nb_steps = 0
         self.horizon = horizon
 
+        self.random = random.Random()
+
         self.reset()
         self.best_state = (0) * self.state_len
         self.max_reward = 100
@@ -56,13 +58,13 @@ class Env2:
         self.options_space = Discrete(options_number)
 
         self.action_possible_options = {}
-        self.action_possible_options[(0, 0)] = [1, 3, 5, 6]
-        self.action_possible_options[(0, 1)] = [1, 3, 5, 6]
-        self.action_possible_options[(0, 2)] = [0, 2, 5, 6]
-        self.action_possible_options[(0, 3)] = [1, 3, 5, 6]
-        self.action_possible_options[(1, 0)] = [0, 1, 2, 3, 5, 6]
-        self.action_possible_options[(2, 0)] = [3, 1, 5, 6]
-        self.action_possible_options[(2, 1)] = [2, 0, 5, 6]
+        self.action_possible_options[(0, 0)] = [1, 3, 5, 6, 4]
+        self.action_possible_options[(0, 1)] = [1, 3, 5, 6, 4]
+        self.action_possible_options[(0, 2)] = [0, 2, 5, 6, 4]
+        self.action_possible_options[(0, 3)] = [1, 3, 5, 6, 4]
+        self.action_possible_options[(1, 0)] = [0, 1, 2, 3, 5, 6, 4]
+        self.action_possible_options[(2, 0)] = [3, 1, 5, 6, 4]
+        self.action_possible_options[(2, 1)] = [2, 0, 5, 6, 4]
         self.action_possible_options[(3, 0)] = [5, 6]
 
         self.statementsCodes = {
@@ -77,7 +79,10 @@ class Env2:
         print(self.state_infos)
 
     def sample(self):
-        return self.action_space.sample(), self.options_space.sample()
+        action_index = self.action_space.sample()
+        action = self.actions[action_index]
+        options = self.action_possible_options[action]
+        return action_index, self.random.choice(options)
 
     def reset(self):
         self.nb_steps = 0
@@ -117,28 +122,25 @@ class Env2:
         action = self.actions[actionIndex]
 
         done = False
-        self.reward = -1
-        options_reward = 0
-        if self.is_action_valid(action):
+        options_reward = -1
+       
+        if self.is_action_valid(action) and self.is_option_valid(action, option):
             options_reward = 1
             self.perform_action(action)
-
-            if not self.is_option_valid(action, option):
-                option = 4 # Nop
-                options_reward = -1
-
             self.perform_move_option(option)
+
+            self.infos['actions'].append(
+                (self.actions_str[action], self.options_str[option])
+            )
 
             self.state_infos['current_statement'] = self.statementsCodes[type(self.current_statement)]
             self.state_infos['actions_option'] = option
 
             self.state_infos['codage'] = self.infos['codage'] = self.algorithm.encode_str()
-
-            self.infos['actions'].append(
-                (self.actions_str[action], self.options_str[option])
-            )
             self.infos['algo'] = str(self.algorithm)
-            done = self.test_algorithm()
+            
+        done = self.test_algorithm()
+        self.reward -= self.algorithm.instructionsNum()
         #retun new state
         state = [self.state_infos[x] for x in self.state_infos]
         state[0] = self.algorithm.encode()
@@ -152,24 +154,26 @@ class Env2:
     
     def test_algorithm(self):
         self.infos['algo_results'] = []
-        puissance2 = 1
+        bits = ''
         major_error = False
         success = 0
-        test_io = [(0, 0), (1, 0), (2, 1)]
+        self.state_infos['tests'] = 0
+        test_io = [(0, 0), (1, 0)]
         try:
             for input, output in test_io:
                 res = self.algorithm.evaluate(input)
                 self.infos['algo_results'].append((input, res))
                 if res == output: 
                     self.reward += 1
-                    self.state_infos['tests'] |= puissance2
-                    puissance2 <<= 1
+                    bits = bits + '1'
                     success += 1
                 else:
                     self.reward -= 1
+                    bits = bits + '0'
                 
                 if res < 0:
                     major_error = True
+            self.state_infos['tests'] = int(bits, 2)
         except statement.AgentError as e:
             major_error = True
         

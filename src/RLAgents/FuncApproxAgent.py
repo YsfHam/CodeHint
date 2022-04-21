@@ -6,8 +6,8 @@ class FuncApproxAgent(LearningAgent):
         self.reset(env)
 
     def reset(self, env):
-        self.actions_parameters = torch.zeros((env.action_space.n, env.state_len), dtype=torch.float64)
-        self.options_parameters = torch.zeros((env.options_space.n, env.state_len + 1), dtype=torch.float64)
+        self.actions_parameters = torch.rand((env.action_space.n, env.state_len), dtype=torch.float64)
+        self.options_parameters = torch.rand((env.options_space.n, env.state_len + 1), dtype=torch.float64)
 
 
     def get_actions_q(self, state, env):

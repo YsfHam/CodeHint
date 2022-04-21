@@ -34,6 +34,9 @@ class QLearningAgent(FuncApproxAgent):
                 newstateActionQ = self.get_actions_q(t_action_newstate, env)
                 t_newaction = torch.tensor([newaction], dtype=torch.float64)
                 newstateOptionQ = self.get_options_q(t_action_newstate, t_newaction, env)
+
+                reward = (actions_reward + options_reward) / 2
+
                 if done:
                     self.actions_parameters[action] += alpha * (actions_reward - stateActionQ[action]) * t_action_state
                     self.options_parameters[option] += alpha * (options_reward - stateOptionQ[option]) * t_option_state
@@ -42,7 +45,6 @@ class QLearningAgent(FuncApproxAgent):
                     self.options_parameters[option] += alpha * (options_reward + gamma * torch.max(newstateOptionQ) - stateOptionQ[option]) * t_option_state
 
                 action_state, action, option = action_newstate, newaction, newoption
-                reward = actions_reward + options_reward
                 tot_reward += reward
                 
             tot_rewards += tot_reward
@@ -51,6 +53,14 @@ class QLearningAgent(FuncApproxAgent):
                 avg = tot_rewards / (m+1)
                 print(m+1, avg, epsilon)
                 print(env.algorithm)
+                print("------------------------")
+                print('actions', env.infos['actions'])
+                print("------------------------")
+                print('success_rate', env.infos['success_rate'])
+                print("------------------------")
+                print('algo_results', env.infos['algo_results'])
+                print("------------------------")
+                print(env.state_infos)
             
             if epsilon > 0:
                 epsilon -= base_epsilon/max_iterations
@@ -61,7 +71,11 @@ class QLearningAgent(FuncApproxAgent):
             print("------------------------")
             print(env.algorithm)
             print("------------------------")
-            print(env.infos)
+            print('actions', env.infos['actions'])
+            print("------------------------")
+            print('success_rate', env.infos['success_rate'])
+            print("------------------------")
+            print('algo_results', env.infos['algo_results'])
             print("------------------------")
             print(env.state_infos)
             print("------------------------")
