@@ -51,7 +51,7 @@ class Env2:
         self.options_str[1] = 'Aller à droite'
         self.options_str[2] = 'Aller au prochain bloc à gauche'
         self.options_str[3] = 'Aller au prochain bloc à droite'
-        self.options_str[4] = 'Nop'
+        self.options_str[4] = 'Ne pas se déplacer'
         self.options_str[5] = 'Monter'
         self.options_str[6] = 'Monter au bloc precedent'
 

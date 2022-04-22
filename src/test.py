@@ -24,7 +24,6 @@ def evaluate(env, policy, file_name):
     f.close()
 
 def test(env, agent= None,maxit=1000):
-  # load the mountain car problem
   if agent is not None:
     agent.reset()
     with torch.no_grad():
@@ -39,6 +38,6 @@ if len(sys.argv) < 2 or sys.argv[1] not in agents:
   for agentName in agents:
     print(agentName)
   sys.exit(1)
-agent = agents[sys.argv[1]]()
 env = BasicEnv(horizon=30)
+agent = agents[sys.argv[1]](env)
 test(env, agent, 1000)

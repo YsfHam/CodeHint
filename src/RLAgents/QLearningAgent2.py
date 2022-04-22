@@ -8,6 +8,7 @@ class QLearningAgent(FuncApproxAgent):
         super().__init__(env)
 
     def compute_policy(self, env, gamma=0.9, max_iterations=1000000, base_epsilon=0.8, alpha=0.2, debug=False):
+
         tot_rewards = 0
         epsilon = base_epsilon
         if debug:
@@ -45,7 +46,7 @@ class QLearningAgent(FuncApproxAgent):
 
                 action_state, action, option = action_newstate, newaction, newoption
                 tot_reward += reward
-            self.save_training_data('q_Learning.data', tot_reward, env.infos['actions'], env.infos['success_rate'], int(actions_reward == env.max_reward))
+                
             tot_rewards += tot_reward
 
             if debug and ((m+1)%100 == 0):
@@ -82,5 +83,4 @@ class QLearningAgent(FuncApproxAgent):
             print("------------------------")
             print(self.options_parameters)
             print("****************************")
-
-            self.save_policy_to_file(['actions.param', 'options.param'])
+        self.save_to_file(["actions.pol", "options.pol"])

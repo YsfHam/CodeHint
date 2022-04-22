@@ -3,6 +3,8 @@ from .Agent import LearningAgent
 
 class FuncApproxAgent(LearningAgent):
     def __init__(self, env):
+        super().__init__()
+        
         self.reset(env)
 
     def reset(self, env):

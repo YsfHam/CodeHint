@@ -4,6 +4,7 @@ import torch
 class LearningAgent(abc.ABC):
 
     def __init__(self):
+        print('Learning agent ')
         self.trainingDataFile = None
 
     @abc.abstractmethod
@@ -40,7 +41,7 @@ class LearningAgent(abc.ABC):
 
     def save_training_data(self, filename, *data):
         if self.trainingDataFile == None:
-            self.traningDataFile = open(filename, 'w')
-        
-        self.trainingDataFile.write(','.join(data))
+            self.trainingDataFile = open(filename, 'w')
+        str_data = [str(d) for d in data]
+        self.trainingDataFile.write(';'.join(str_data) + '\n')
     
