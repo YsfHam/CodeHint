@@ -2,6 +2,10 @@ import abc
 import torch
 
 class LearningAgent(abc.ABC):
+
+    def __init__(self):
+        self.trainingDataFile = None
+
     @abc.abstractmethod
     def reset(self, env):
         pass
@@ -31,6 +35,12 @@ class LearningAgent(abc.ABC):
     def compute_policy(self, env, gamma=0.9, max_iterations=1000000, base_epsilon=0.8, alpha=0.2, debug=False):
         pass
     
-    def save_to_file(self, filename):
+    def save_policy_to_file(self, filename):
         pass
+
+    def save_training_data(self, filename, *data):
+        if self.trainingDataFile == None:
+            self.traningDataFile = open(filename, 'w')
+        
+        self.trainingDataFile.write(','.join(data))
     

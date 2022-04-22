@@ -56,4 +56,3 @@ class MonteCarloAgent(FuncApproxAgent):
             print("------------------------")
             print(self.options_parameters)
             print("****************************")
-        self.save_to_file(["actionsMC.pol", "optionsMC.pol"])
